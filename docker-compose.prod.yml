@@ -47,7 +47,7 @@ services:
       - DATABASE_USERNAME=inari
       - DATABASE_PASSWORD=${THUNDERBIRD_DB_PASSWORD}
       - DATABASE_PORT=5432
-      - PGOPTIONS=-c search_path=appointment,public
+      - PGOPTIONS=-c search_path=appointment
       - DB_SECRET=${THUNDERBIRD_DB_SECRET}
       - SESSION_SECRET=${THUNDERBIRD_SESSION_SECRET}
       - CSRF_SECRET=${THUNDERBIRD_CSRF_SECRET}
@@ -99,7 +99,7 @@ services:
       - DATABASE_USERNAME=inari
       - DATABASE_PASSWORD=${THUNDERBIRD_DB_PASSWORD}
       - DATABASE_PORT=5432
-      - PGOPTIONS=-c search_path=appointment,public
+      - PGOPTIONS=-c search_path=appointment
       - DB_SECRET=${THUNDERBIRD_DB_SECRET}
       - SESSION_SECRET=${THUNDERBIRD_SESSION_SECRET}
       - CSRF_SECRET=${THUNDERBIRD_CSRF_SECRET}
