@@ -1,0 +1,137 @@
+# Compose de producción para Inari — no viene del upstream (thunderbird/appointment
+# solo publica un docker-compose.yml de desarrollo, ver frontend/README.md).
+# Reusa el Postgres compartido de Inari (esquema "appointment", ver DATABASE_*
+# + PGOPTIONS) en vez de un motor nuevo. frontend usa frontend/deploy.dockerfile
+# (el mismo que usa Mozilla en producción para appointment.tb.pro), que sirve
+# la SPA con nginx y proxya /api/v1/ al servicio "api" vía APP_API_UPSTREAM.
+services:
+  redis:
+    image: redis
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - CONTAINER_ROLE=api
+      - APP_ENV=prod
+      - LOG_LEVEL=INFO
+      - APP_ALLOW_FIRST_TIME_REGISTER=${THUNDERBIRD_ALLOW_FIRST_TIME_REGISTER:-true}
+      - BACKEND_URL=https://citas.inaridata.com
+      - FRONTEND_URL=https://citas.inaridata.com
+      - DATABASE_ENGINE=postgresql
+      - DATABASE_HOST=tusqdcpxm3ctoz046bl5okoc
+      - DATABASE_NAME=inaridb
+      - DATABASE_USERNAME=inari
+      - DATABASE_PASSWORD=${THUNDERBIRD_DB_PASSWORD}
+      - DATABASE_PORT=5432
+      - PGOPTIONS=-c search_path=appointment,public
+      - DB_SECRET=${THUNDERBIRD_DB_SECRET}
+      - SESSION_SECRET=${THUNDERBIRD_SESSION_SECRET}
+      - CSRF_SECRET=${THUNDERBIRD_CSRF_SECRET}
+      - JWT_SECRET=${THUNDERBIRD_JWT_SECRET}
+      - SIGNED_SECRET=${THUNDERBIRD_SIGNED_SECRET}
+      - AUTH_SCHEME=password
+      - SERVICE_EMAIL=${THUNDERBIRD_SERVICE_EMAIL}
+      - SMTP_SECURITY=STARTTLS
+      - SMTP_URL=smtp.migadu.com
+      - SMTP_PORT=587
+      - SMTP_USER=${THUNDERBIRD_SMTP_USER}
+      - SMTP_PASS=${THUNDERBIRD_SMTP_PASS}
+      - REDIS_URL=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - CELERY_BROKER=redis://redis:6379
+      - CELERY_BACKEND=redis://redis:6379
+      - REDIS_CELERY_DB=2
+      - REDIS_CELERY_RESULTS_DB=3
+      - CELERY_EAGER=False
+      - TBA_PRIVACY_POLICY_LOCATION=../legal/services-privacy-policy.md
+    healthcheck:
+      test:
+        - CMD
+        - echo
+        - ok
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+  worker:
+    build:
+      context: ./backend
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - CONTAINER_ROLE=worker
+      - APP_ENV=prod
+      - LOG_LEVEL=INFO
+      - BACKEND_URL=https://citas.inaridata.com
+      - FRONTEND_URL=https://citas.inaridata.com
+      - DATABASE_ENGINE=postgresql
+      - DATABASE_HOST=tusqdcpxm3ctoz046bl5okoc
+      - DATABASE_NAME=inaridb
+      - DATABASE_USERNAME=inari
+      - DATABASE_PASSWORD=${THUNDERBIRD_DB_PASSWORD}
+      - DATABASE_PORT=5432
+      - PGOPTIONS=-c search_path=appointment,public
+      - DB_SECRET=${THUNDERBIRD_DB_SECRET}
+      - SESSION_SECRET=${THUNDERBIRD_SESSION_SECRET}
+      - CSRF_SECRET=${THUNDERBIRD_CSRF_SECRET}
+      - JWT_SECRET=${THUNDERBIRD_JWT_SECRET}
+      - SIGNED_SECRET=${THUNDERBIRD_SIGNED_SECRET}
+      - AUTH_SCHEME=password
+      - SERVICE_EMAIL=${THUNDERBIRD_SERVICE_EMAIL}
+      - SMTP_SECURITY=STARTTLS
+      - SMTP_URL=smtp.migadu.com
+      - SMTP_PORT=587
+      - SMTP_USER=${THUNDERBIRD_SMTP_USER}
+      - SMTP_PASS=${THUNDERBIRD_SMTP_PASS}
+      - REDIS_URL=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - CELERY_BROKER=redis://redis:6379
+      - CELERY_BACKEND=redis://redis:6379
+      - REDIS_CELERY_DB=2
+      - REDIS_CELERY_RESULTS_DB=3
+      - CELERY_EAGER=False
+      - TBA_PRIVACY_POLICY_LOCATION=../legal/services-privacy-policy.md
+    healthcheck:
+      test:
+        - CMD
+        - echo
+        - ok
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: deploy.dockerfile
+    depends_on:
+      - api
+    environment:
+      - APP_API_URL=citas.inaridata.com/api/v1
+      - APP_API_SECURE=true
+      - APP_API_UPSTREAM=api:5000
+      - APP_AUTH_SCHEME=password
+      - APP_DEFAULT_HOUR_FORMAT=24
+      - APP_SHORT_BASE_URL=
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.appointment.rule=Host(`citas.inaridata.com`)
+      - traefik.http.routers.appointment.entryPoints=https
+      - traefik.http.routers.appointment.tls=true
+      - traefik.http.routers.appointment.tls.certresolver=letsencrypt
+      - traefik.http.services.appointment.loadbalancer.server.port=80
