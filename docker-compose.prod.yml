@@ -4,6 +4,15 @@
 # + PGOPTIONS) en vez de un motor nuevo. frontend usa frontend/deploy.dockerfile
 # (el mismo que usa Mozilla en producción para appointment.tb.pro), que sirve
 # la SPA con nginx y proxya /api/v1/ al servicio "api" vía APP_API_UPSTREAM.
+networks:
+  # Red compartida de Coolify: sin esto, cada compose vive en su propia red
+  # aislada y no puede resolver el hostname del Postgres compartido
+  # (tusqdcpxm3ctoz046bl5okoc) ni el resto de servicios de infra — Coolify solo
+  # conecta a esta red automáticamente el servicio que tiene un dominio/Traefik
+  # (frontend aquí), no el resto del compose.
+  coolify:
+    external: true
+
 services:
   redis:
     image: redis
@@ -22,6 +31,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - default
+      - coolify
     environment:
       - CONTAINER_ROLE=api
       - APP_ENV=prod
@@ -72,6 +84,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - default
+      - coolify
     environment:
       - CONTAINER_ROLE=worker
       - APP_ENV=prod
