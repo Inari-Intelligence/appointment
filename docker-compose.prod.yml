@@ -15,7 +15,13 @@ networks:
 
 services:
   redis:
-    image: redis
+    # Fijado a 7 (no "redis" a secas = latest = 8.x): el cliente Python
+    # moderno (redis-py) da "Authentication required" al conectar contra la
+    # imagen sin versión actual, incluso sin ninguna contraseña configurada
+    # (mismo síntoma sin resolver que tuvimos con GlitchTip/django-vcache).
+    # redis-cli sí conecta bien en los dos casos — el problema es específico
+    # del handshake de clientes Python modernos contra esta versión.
+    image: redis:7-alpine
     healthcheck:
       test:
         - CMD
