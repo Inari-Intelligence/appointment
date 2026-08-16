@@ -14,13 +14,18 @@ networks:
     external: true
 
 services:
-  redis:
-    # Fijado a 7 (no "redis" a secas = latest = 8.x): el cliente Python
-    # moderno (redis-py) da "Authentication required" al conectar contra la
-    # imagen sin versión actual, incluso sin ninguna contraseña configurada
-    # (mismo síntoma sin resolver que tuvimos con GlitchTip/django-vcache).
-    # redis-cli sí conecta bien en los dos casos — el problema es específico
-    # del handshake de clientes Python modernos contra esta versión.
+  # Nombrado "appointment-redis", NO "redis" a secas: api/worker están
+  # también en la red compartida "coolify" (para llegar al Postgres común),
+  # y ahí "redis" es un nombre ambiguo — hay más de un servicio llamado
+  # literalmente así en esa red (este, el de GlitchTip, y el propio
+  # coolify-redis interno de Coolify, que SÍ tiene contraseña). Confirmado
+  # con un socket en crudo desde el contenedor de api: conectando a "redis"
+  # el servidor respondía "-NOAUTH Authentication required." — no era un
+  # bug de redis-py ni de la versión de Redis (mismo síntoma sin resolver
+  # que tuvimos con GlitchTip/django-vcache, ahí lo esquivamos con Postgres
+  # como caché en vez de encontrar esto). Con un nombre único no hay
+  # ambigüedad posible, resuelve siempre al contenedor correcto.
+  appointment-redis:
     image: redis:7-alpine
     healthcheck:
       test:
@@ -35,7 +40,7 @@ services:
     build:
       context: ./backend
     depends_on:
-      redis:
+      appointment-redis:
         condition: service_healthy
     networks:
       - default
@@ -68,11 +73,11 @@ services:
       - SMTP_PORT=587
       - SMTP_USER=${THUNDERBIRD_SMTP_USER}
       - SMTP_PASS=${THUNDERBIRD_SMTP_PASS}
-      - REDIS_URL=redis
+      - REDIS_URL=appointment-redis
       - REDIS_PORT=6379
       - REDIS_DB=0
-      - CELERY_BROKER=redis://redis:6379
-      - CELERY_BACKEND=redis://redis:6379
+      - CELERY_BROKER=redis://appointment-redis:6379
+      - CELERY_BACKEND=redis://appointment-redis:6379
       - REDIS_CELERY_DB=2
       - REDIS_CELERY_RESULTS_DB=3
       - CELERY_EAGER=False
@@ -90,7 +95,7 @@ services:
     build:
       context: ./backend
     depends_on:
-      redis:
+      appointment-redis:
         condition: service_healthy
     networks:
       - default
@@ -122,11 +127,11 @@ services:
       - SMTP_PORT=587
       - SMTP_USER=${THUNDERBIRD_SMTP_USER}
       - SMTP_PASS=${THUNDERBIRD_SMTP_PASS}
-      - REDIS_URL=redis
+      - REDIS_URL=appointment-redis
       - REDIS_PORT=6379
       - REDIS_DB=0
-      - CELERY_BROKER=redis://redis:6379
-      - CELERY_BACKEND=redis://redis:6379
+      - CELERY_BROKER=redis://appointment-redis:6379
+      - CELERY_BACKEND=redis://appointment-redis:6379
       - REDIS_CELERY_DB=2
       - REDIS_CELERY_RESULTS_DB=3
       - CELERY_EAGER=False
